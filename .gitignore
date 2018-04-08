@@ -4,6 +4,7 @@ venv/
 
 data/colorferet/*
 **/__pycache__/
+**/*.pyc
 
 !data/*/*.py
 !data/*/*.sh
