@@ -1,5 +1,5 @@
 from torch.nn import Sequential, Conv2d, BatchNorm2d,\
-    Dropout, Linear, Sigmoid, ReLU, MaxPool2d, Softmax
+    Dropout, Linear, Sigmoid, ReLU, MaxPool2d
 
 from smaug.modules import Flatten
 
@@ -22,7 +22,4 @@ class NetworkB1(Sequential):
             Sigmoid(),
             Dropout(p=dropout),
             Linear(flat_length // 2, labels),
-            # Softmax(dim=1)
         )
-
-

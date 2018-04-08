@@ -1,2 +1,5 @@
-torchvisionColor FERET download request
+torchvision
 numpy
+imutils
+Pillow
+opencv-python

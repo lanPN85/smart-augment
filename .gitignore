@@ -1,5 +1,9 @@
 .idea/
+.vscode/
 venv/
 
-data/*
+data/colorferet/*
 **/__pycache__/
+
+!data/*/*.py
+!data/*/*.sh
