@@ -59,19 +59,6 @@ class SingleAugmentDataset(Dataset):
 
         self._files = files
         self._labels = labels
-        self._prepare()
-
-    def _prepare(self):
-        self._groups = []
-        for f1, l1 in zip(self._files, self._labels):
-            for f2, l2 in zip(self._files, self._labels):
-                if f1 == f2:
-                    continue
-                for f3, l3 in zip(self._files, self._labels):
-                    if f1 == f3 or f2 == f3:
-                        continue
-                    if l1 == l2 == l3:
-                        self._groups.append(((f1, f2, f3), l1))
 
     def augment_images(self, images):
         new_images = []
@@ -87,8 +74,16 @@ class SingleAugmentDataset(Dataset):
 
         return new_images
 
+    def _random_triple(self):
+        id1 = random.sample(range(len(self._files)), k=1)[0]
+        f1, lbl = self._files[id1], self._labels[id1]
+        id2, id3 = random.sample(list(filter(lambda i: self._labels[i] == lbl and i != id1,
+                                      range(len(self._files)))), k=2)
+        f2, f3 = self._files[id2], self._files[id3]
+        return (f1, f2, f3), lbl
+
     def __getitem__(self, index):
-        f, label = self._groups[index]
+        f, label = self._random_triple()
         f1, f2, f3 = f
         im1, im2, im3 = read_image(f1), read_image(f2), read_image(f3)
         if self.augment:
@@ -100,4 +95,4 @@ class SingleAugmentDataset(Dataset):
         return (im1, im2, im3), np.asarray([label], dtype=np.int)
 
     def __len__(self):
-        return len(self._groups)
+        return len(self._files)

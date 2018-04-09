@@ -79,8 +79,8 @@ class SmartAugmentSingle:
 
                 loss.backward()
                 optimizer.step()
-                print('Epoch %d/%d - Iter %d/%d - Loss: %6.4f\r' %
-                      (ep+1, epochs, i+1, len(dataset), loss))
+                print('Epoch %d/%d - Iter %d/%d - Loss: %6.4f' %
+                      (ep+1, epochs, i+1, len(dataset), loss), end='\r')
 
             t_elapsed = time.time() - t_start
             print()
