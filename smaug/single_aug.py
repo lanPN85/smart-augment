@@ -112,9 +112,9 @@ class SmartAugmentSingle:
                     im3 = im3.cuda()
 
                 out = self.get_net_b_pred(im3)[0]
-                _, pred = torch.max(out)
+                _, pred = torch.max(out, 0)
 
-                if pred == labels[0]:
+                if pred.data[0] == labels[0][0]:
                     correct += 1.
                 total += 1.
             acc = correct / total
@@ -124,8 +124,9 @@ class SmartAugmentSingle:
             epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
             print('Saving results in %s' % epoch_img_dir)
             # Get 5 images from net A
+            all_ = list(test_loader)
             for i in range(5):
-                images, _ = random.sample(test_loader, k=1)[0]
+                images, _ = random.sample(all_, k=1)[0]
                 im1, im2, _ = images
                 im1 = autograd.Variable(im1)
                 im2 = autograd.Variable(im2)
@@ -134,8 +135,8 @@ class SmartAugmentSingle:
                     im2 = im2.cuda()
 
                 out_img = self.get_net_a_image(im1, im2)
-                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1))
-                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2))
+                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1[0]))
+                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2[0]))
                 cv2.imwrite(os.path.join(epoch_img_dir, '%03d_out.png' % (i+1)), out_img)
 
     def save(self, path_a, path_b):
@@ -144,7 +145,7 @@ class SmartAugmentSingle:
 
     @staticmethod
     def denormalize(img):
-        out = img.data.numpy()
+        out = img.data.cpu().numpy()
         out = np.transpose(out, [1, 2, 0])
         out *= 255.
         out = out.astype(np.int)
@@ -162,7 +163,7 @@ class SmartAugmentSingle:
         self.net_b.eval()
 
         out = self.net_b(images)
-        return nn.Softmax()(out)
+        return nn.Softmax(dim=1)(out)
 
     @classmethod
     def load(cls, path_a, path_b, **kwargs):
