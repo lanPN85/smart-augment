@@ -108,6 +108,9 @@ class SmartAugmentSingle:
             for i, (images, labels) in enumerate(test_loader):
                 _, _, im3 = images
                 im3 = autograd.Variable(im3)
+                if self.__cuda:
+                    im3 = im3.cuda()
+
                 out = self.get_net_b_pred(im3)[0]
                 _, pred = torch.max(out)
 
