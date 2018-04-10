@@ -122,6 +122,7 @@ class SmartAugmentSingle:
 
             print('Testing smart augment...')
             epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
+            os.makedirs(epoch_img_dir, exist_ok=True)
             print('Saving results in %s' % epoch_img_dir)
             # Get 5 images from net A
             all_ = list(test_loader)
