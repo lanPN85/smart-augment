@@ -1,8 +1,11 @@
 import os
+import random
 import time
+import cv2
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
+import numpy as np
 
 from torch.utils.data import DataLoader
 
@@ -21,11 +24,18 @@ class SmartAugmentSingle:
 
         if cuda:
             self.cuda()
+        else:
+            self.cpu()
 
     def cuda(self, device=0):
         self.net_a.cuda(device)
         self.net_b.cuda(device)
         self.__cuda = True
+
+    def cpu(self):
+        self.net_a.cpu()
+        self.net_b.cpu()
+        self.__cuda = False
 
     def forward_a(self, img1, img2):
         inp = torch.cat([img1, img2], dim=1)
@@ -35,7 +45,9 @@ class SmartAugmentSingle:
         return self.net_b(images)
 
     def train(self, dataset, test_dataset, epochs, lr=0.01, save_dir='models/default'):
+        img_dir = os.path.join(save_dir, 'images')
         os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(img_dir, exist_ok=True)
 
         optimizer = torch.optim.SGD(list(self.net_a.parameters()) + list(self.net_b.parameters()),
                                     lr=lr, momentum=0.9, nesterov=False)
@@ -90,8 +102,67 @@ class SmartAugmentSingle:
             snap_path_b = os.path.join(save_dir, 'epoch_%d_b.pth' % (ep + 1))
             self.save(snap_path_a, snap_path_b)
 
-            # TODO Evaluate on epoch end
+            # Evaluate accuracy
+            print('Evaluating...')
+            correct, total = 0., 0.
+            for i, (images, labels) in enumerate(test_loader):
+                _, _, im3 = images
+                im3 = autograd.Variable(im3)
+                out = self.get_net_b_pred(im3)[0]
+                _, pred = torch.max(out)
+
+                if pred == labels[0]:
+                    correct += 1.
+                total += 1.
+            acc = correct / total
+            print('Val accuracy: %.4f' % acc)
+
+            print('Testing smart augment...')
+            epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
+            print('Saving results in %s' % epoch_img_dir)
+            # Get 5 images from net A
+            for i in range(5):
+                images, _ = random.sample(test_loader, k=1)[0]
+                im1, im2, _ = images
+                im1 = autograd.Variable(im1)
+                im2 = autograd.Variable(im2)
+                if self.__cuda:
+                    im1 = im1.cuda()
+                    im2 = im2.cuda()
+
+                out_img = self.get_net_a_image(im1, im2)
+                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1))
+                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2))
+                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_out.png' % (i+1)), out_img)
 
     def save(self, path_a, path_b):
         torch.save(self.net_a, path_a)
         torch.save(self.net_b, path_b)
+
+    @staticmethod
+    def denormalize(img):
+        out = img.data.numpy()
+        out = np.transpose(out, [1, 2, 0])
+        out *= 255.
+        out = out.astype(np.int)
+        return out
+
+    def get_net_a_image(self, img1, img2):
+        self.net_a.eval()
+
+        inp = torch.cat([img1, img2], dim=1)
+        out = self.net_a(inp)[0]
+
+        return self.denormalize(out)
+
+    def get_net_b_pred(self, images):
+        self.net_b.eval()
+
+        out = self.net_b(images)
+        return nn.Softmax()(out)
+
+    @classmethod
+    def load(cls, path_a, path_b, **kwargs):
+        net_a = torch.load(path_a)
+        net_b = torch.load(path_b)
+        return cls(net_a, net_b, **kwargs)

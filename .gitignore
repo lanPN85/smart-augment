@@ -3,8 +3,10 @@
 venv/
 
 data/colorferet/*
-**/__pycache__/
-**/*.pyc
-
 !data/*/*.py
 !data/*/*.sh
+
+models/*
+
+**/__pycache__/
+**/*.pyc

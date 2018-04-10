@@ -74,16 +74,16 @@ class SingleAugmentDataset(Dataset):
 
         return new_images
 
-    def _random_triple(self):
-        id1 = random.sample(range(len(self._files)), k=1)[0]
-        f1, lbl = self._files[id1], self._labels[id1]
-        id2, id3 = random.sample(list(filter(lambda i: self._labels[i] == lbl and i != id1,
+    def _random_triple(self, index):
+        id3 = index
+        f3, lbl = self._files[id3], self._labels[id3]
+        id2, id1 = random.sample(list(filter(lambda i: self._labels[i] == lbl and i != id3,
                                       range(len(self._files)))), k=2)
-        f2, f3 = self._files[id2], self._files[id3]
+        f2, f1 = self._files[id2], self._files[id1]
         return (f1, f2, f3), lbl
 
     def __getitem__(self, index):
-        f, label = self._random_triple()
+        f, label = self._random_triple(index)
         f1, f2, f3 = f
         im1, im2, im3 = read_image(f1), read_image(f2), read_image(f3)
         if self.augment:
