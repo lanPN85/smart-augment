@@ -1,5 +1,8 @@
 from argparse import ArgumentParser
 
+import os
+import shutil
+
 from smaug import NetworkA1, NetworkB1, SmartAugmentSingle
 from smaug.dataset import SingleAugmentDataset
 from smaug.data_bridge import feret
@@ -51,6 +54,12 @@ if __name__ == '__main__':
     net_b = NetworkB1(channels=args.channels, flat_length=968,
                       labels=bridge.get_num_labels(), dropout=args.dropout)
     model = SmartAugmentSingle(net_a, net_b, alpha=args.alpha, beta=args.beta, cuda=args.cuda)
+
+    if os.path.exists(args.save_dir):
+        if input('Model directory already exists. Overwrite ? (Y/n) ').lower() == 'y':
+            shutil.rmtree(args.save_dir)
+        else:
+            exit(0)
 
     print('Starting training...')
     try:
