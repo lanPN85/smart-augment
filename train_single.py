@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument('--epochs', default=500, type=int)
     parser.add_argument('--save-dir', default='models/default')
     parser.add_argument('--snapshot-freq', default=5, type=int)
+    parser.add_argument('--grad-norm', default=400., type=float)
 
     return parser.parse_args()
 
@@ -54,7 +55,7 @@ if __name__ == '__main__':
     print('Starting training...')
     try:
         model.train(train_dataset, val_dataset, args.epochs, lr=args.lr, save_dir=args.save_dir,
-                    snapshot_freq=args.snapshot_freq)
+                    snapshot_freq=args.snapshot_freq, gradient_norm=args.grad_norm)
         print('Training complete.')
     except KeyboardInterrupt:
         print('\nTraining interrupted.')

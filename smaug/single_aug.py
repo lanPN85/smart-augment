@@ -45,7 +45,7 @@ class SmartAugmentSingle:
         return self.net_b(images)
 
     def train(self, dataset, test_dataset, epochs, lr=0.01, save_dir='models/default',
-              snapshot_freq=5):
+              snapshot_freq=5, gradient_norm=400):
         img_dir = os.path.join(save_dir, 'images')
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(img_dir, exist_ok=True)
@@ -91,7 +91,7 @@ class SmartAugmentSingle:
                 total_loss += loss
 
                 loss.backward()
-                nn.utils.clip_grad_norm(list(self.net_a.parameters()) + list(self.net_b.parameters()), 400)
+                nn.utils.clip_grad_norm(list(self.net_a.parameters()) + list(self.net_b.parameters()), gradient_norm)
                 optimizer.step()
                 print('Epoch %d/%d - Iter %d/%d - Loss@A: %6.4f - Loss@B: %6.4f - Loss: %6.4f' %
                       (ep+1, epochs, i+1, len(dataset), loss_a, loss_b, loss), end='\r')
