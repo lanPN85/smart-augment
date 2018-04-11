@@ -85,7 +85,7 @@ class SmartAugmentSingle:
                 inp_batch = torch.cat([new_img, im3], dim=0)
                 out = self.forward_b(inp_batch)
 
-                loss_a = criterion_a(new_img * 255., im3 * 255.) #/ (new_img.shape[-1] * new_img.shape[-2])
+                loss_a = criterion_a(new_img, im3) #/ (new_img.shape[-1] * new_img.shape[-2])
                 loss_b = criterion_b(out, labels)
                 loss = self.alpha * loss_a + self.beta * loss_b
                 total_loss += loss
