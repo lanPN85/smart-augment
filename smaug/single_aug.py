@@ -50,9 +50,12 @@ class SmartAugmentSingle:
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(img_dir, exist_ok=True)
 
-        optimizer = torch.optim.SGD(list(self.net_a.parameters()) + list(self.net_b.parameters()),
-                                    lr=lr, momentum=0.9, nesterov=False)
-        criterion_a = nn.MSELoss(size_average=False)
+        # optimizer = torch.optim.SGD(list(self.net_a.parameters()) + list(self.net_b.parameters()),
+        #                             lr=lr, momentum=0.9, nesterov=False)
+        optimizer_a = torch.optim.SGD(self.net_a.parameters(), lr=lr, momentum=0.9, nesterov=False)
+        optimizer_b = torch.optim.SGD(self.net_b.parameters(), lr=lr, momentum=0.9, nesterov=False)
+
+        criterion_a = nn.MSELoss(size_average=True)
         criterion_b = nn.CrossEntropyLoss()
         train_loader = DataLoader(dataset, batch_size=1, shuffle=True,
                                   collate_fn=raw_collate)
@@ -79,20 +82,24 @@ class SmartAugmentSingle:
                     im3 = im3.cuda()
                     labels = labels.cuda()
 
-                optimizer.zero_grad()
-
                 new_img = self.forward_a(im1, im2)
                 inp_batch = torch.cat([new_img, im3], dim=0)
                 out = self.forward_b(inp_batch)
 
-                loss_a = criterion_a(new_img, im3) #/ (new_img.shape[-1] * new_img.shape[-2])
-                loss_b = criterion_b(out, labels)
-                loss = self.alpha * loss_a + self.beta * loss_b
+                loss_a = self.alpha * criterion_a(new_img, im3) #/ (new_img.shape[-1] * new_img.shape[-2])
+                loss_b = self.beta * criterion_b(out, labels)
+                loss = loss_a + loss_b
                 total_loss += loss
 
-                loss.backward()
-                nn.utils.clip_grad_norm(list(self.net_a.parameters()) + list(self.net_b.parameters()), gradient_norm)
-                optimizer.step()
+                optimizer_a.zero_grad()
+                loss.backward(retain_graph=True)
+                nn.utils.clip_grad_norm(self.net_a.parameters(), gradient_norm)
+                optimizer_a.step()
+
+                optimizer_b.zero_grad()
+                loss_b.backward()
+                optimizer_b.step()
+
                 print('Epoch %d/%d - Iter %d/%d - Loss@A: %6.4f - Loss@B: %6.4f - Loss: %6.4f' %
                       (ep+1, epochs, i+1, len(dataset), loss_a, loss_b, loss), end='\r')
 
