@@ -44,14 +44,15 @@ class SmartAugmentSingle:
     def forward_b(self, images):
         return self.net_b(images)
 
-    def train(self, dataset, test_dataset, epochs, lr=0.01, save_dir='models/default'):
+    def train(self, dataset, test_dataset, epochs, lr=0.01, save_dir='models/default',
+              snapshot_freq=5):
         img_dir = os.path.join(save_dir, 'images')
         os.makedirs(save_dir, exist_ok=True)
         os.makedirs(img_dir, exist_ok=True)
 
         optimizer = torch.optim.SGD(list(self.net_a.parameters()) + list(self.net_b.parameters()),
                                     lr=lr, momentum=0.9, nesterov=False)
-        criterion_a = nn.MSELoss()
+        criterion_a = nn.MSELoss(size_average=False)
         criterion_b = nn.CrossEntropyLoss()
         train_loader = DataLoader(dataset, batch_size=1, shuffle=True,
                                   collate_fn=raw_collate)
@@ -91,8 +92,8 @@ class SmartAugmentSingle:
 
                 loss.backward()
                 optimizer.step()
-                print('Epoch %d/%d - Iter %d/%d - Loss: %6.4f' %
-                      (ep+1, epochs, i+1, len(dataset), loss), end='\r')
+                print('Epoch %d/%d - Iter %d/%d - LossA: %6.4f - Loss: %6.4f' %
+                      (ep+1, epochs, i+1, len(dataset), loss_a, loss), end='\r')
 
             t_elapsed = time.time() - t_start
             print()
@@ -120,25 +121,26 @@ class SmartAugmentSingle:
             acc = correct / total
             print('Val accuracy: %.4f' % acc)
 
-            print('Testing smart augment...')
-            epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
-            os.makedirs(epoch_img_dir, exist_ok=True)
-            print('Saving results in %s' % epoch_img_dir)
-            # Get 5 images from net A
-            all_ = list(test_loader)
-            for i in range(5):
-                images, _ = random.sample(all_, k=1)[0]
-                im1, im2, _ = images
-                im1 = autograd.Variable(im1)
-                im2 = autograd.Variable(im2)
-                if self.__cuda:
-                    im1 = im1.cuda()
-                    im2 = im2.cuda()
+            if ep % snapshot_freq == 0:
+                print('Testing smart augment...')
+                epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
+                os.makedirs(epoch_img_dir, exist_ok=True)
+                print('Saving results in %s' % epoch_img_dir)
+                # Get 5 images from net A
+                all_ = list(test_loader)
+                for i in range(5):
+                    images, _ = random.sample(all_, k=1)[0]
+                    im1, im2, _ = images
+                    im1 = autograd.Variable(im1)
+                    im2 = autograd.Variable(im2)
+                    if self.__cuda:
+                        im1 = im1.cuda()
+                        im2 = im2.cuda()
 
-                out_img = self.get_net_a_image(im1, im2)
-                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1[0]))
-                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2[0]))
-                cv2.imwrite(os.path.join(epoch_img_dir, '%03d_out.png' % (i+1)), out_img)
+                    out_img = self.get_net_a_image(im1, im2)
+                    cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1[0]))
+                    cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2[0]))
+                    cv2.imwrite(os.path.join(epoch_img_dir, '%03d_out.png' % (i+1)), out_img)
 
     def save(self, path_a, path_b):
         torch.save(self.net_a, path_a)
