@@ -5,10 +5,11 @@ import shutil
 
 from smaug import NetworkA1, NetworkB1, SmartAugmentSingle
 from smaug.dataset import SingleAugmentDataset
-from smaug.data_bridge import feret
+from smaug.data_bridge import feret, cifar10
 
 BRIDGES = {
-    'feret': feret
+    'feret': feret,
+    'cifar10': cifar10
 }
 
 
@@ -33,7 +34,7 @@ def parse_arguments():
     parser.add_argument('--save-dir', default='models/default')
     parser.add_argument('--snapshot-freq', default=5, type=int)
     parser.add_argument('--grad-norm', default=400., type=float)
-    parser.add_argument('--flat-length', default=968, type=int, help='968 for color')
+    parser.add_argument('--flat-length', default=968, type=int, help='968 for feret')
 
     return parser.parse_args()
 

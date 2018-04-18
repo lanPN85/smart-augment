@@ -3,6 +3,7 @@
 venv/
 
 data/colorferet/*
+data/cifar-10*/*
 !data/*/*.py
 !data/*/*.sh
 
