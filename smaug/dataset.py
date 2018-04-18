@@ -6,10 +6,12 @@ import imutils
 import numpy as np
 
 
-def read_image(path, target_size=(96, 96)):
+def read_image(path, target_size=(96, 96), grayscale=False):
     arr = cv2.imread(path)
     if arr is None:
         raise RuntimeError('Cannot read image at %s' % path)
+    if grayscale:
+        arr = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
     arr = cv2.resize(arr, target_size)
     arr = arr / 255.
@@ -47,7 +49,7 @@ class SingleAugmentDataset(Dataset):
     def __init__(self, files, labels, img_size=(96, 96), augment=True,
                  random_crop=0.8, random_crop_ratio=(0.9, 0.9),
                  rotate=0.5, rotate_angles=(-15, -10, -5, 0, 5, 10, 15),
-                 channels_first=True):
+                 channels_first=True, grayscale=False):
         super().__init__()
         self.img_size = img_size
         self.augment = augment
@@ -56,6 +58,7 @@ class SingleAugmentDataset(Dataset):
         self.random_crop = random_crop
         self.random_crop_ratio = random_crop_ratio
         self.channels_first = channels_first
+        self.grayscale = grayscale
 
         self._files = files
         self._labels = labels
@@ -85,9 +88,13 @@ class SingleAugmentDataset(Dataset):
     def __getitem__(self, index):
         f, label = self._random_triple(index)
         f1, f2, f3 = f
-        im1, im2, im3 = read_image(f1), read_image(f2), read_image(f3)
+        im1 = read_image(f1, grayscale=self.grayscale)
+        im2 = read_image(f2, grayscale=self.grayscale)
+        im3 = read_image(f3, grayscale=self.grayscale)
+
         if self.augment:
             im1, im2, im3 = self.augment_images([im1, im2, im3])
+
         if self.channels_first:
             im1 = np.transpose(im1, (2, 0, 1))
             im2 = np.transpose(im2, (2, 0, 1))

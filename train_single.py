@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument('--val-cutoff', type=int, default=None)
     parser.add_argument('--no-augment', action='store_true')
     parser.add_argument('--data-type', default='feret', help='feret')
-    parser.add_argument('--channels', default=3, type=int)
+    parser.add_argument('--grayscale', action='store_true')
     parser.add_argument('--random-crop', default=0.8, type=float)
     parser.add_argument('--rotate', default=0.5, type=float)
     parser.add_argument('--dropout', default=0.25, type=float)
@@ -33,6 +33,7 @@ def parse_arguments():
     parser.add_argument('--save-dir', default='models/default')
     parser.add_argument('--snapshot-freq', default=5, type=int)
     parser.add_argument('--grad-norm', default=400., type=float)
+    parser.add_argument('--flat-length', default=968, type=int, help='968 for color')
 
     return parser.parse_args()
 
@@ -46,12 +47,14 @@ if __name__ == '__main__':
     val_files, val_labels = bridge.get_data(args.val_dir, cutoff=args.val_cutoff)
     train_dataset = SingleAugmentDataset(train_files, train_labels, img_size=bridge.get_img_size(),
                                          augment=(not args.no_augment), random_crop=args.random_crop,
-                                         rotate=args.rotate)
-    val_dataset = SingleAugmentDataset(val_files, val_labels, img_size=bridge.get_img_size(), augment=False)
+                                         rotate=args.rotate, grayscale=args.grayscale)
+    val_dataset = SingleAugmentDataset(val_files, val_labels, img_size=bridge.get_img_size(), augment=False,
+                                       grayscale=args.grayscale)
 
     print('Creating model...')
-    net_a = NetworkA1(channels=2*args.channels)
-    net_b = NetworkB1(channels=args.channels, flat_length=968,
+    channels = 1 if args.grayscale else 3
+    net_a = NetworkA1(channels=2*channels)
+    net_b = NetworkB1(channels=channels, flat_length=968,
                       labels=bridge.get_num_labels(), dropout=args.dropout)
     model = SmartAugmentSingle(net_a, net_b, alpha=args.alpha, beta=args.beta, cuda=args.cuda)
 

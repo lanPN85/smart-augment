@@ -60,6 +60,7 @@ class SmartAugmentSingle:
         train_loader = DataLoader(dataset, batch_size=1, shuffle=True,
                                   collate_fn=raw_collate)
         test_loader = DataLoader(test_dataset, batch_size=1, collate_fn=raw_collate)
+        best_acc = 0.
 
         for ep in range(epochs):
             total_loss = 0.
@@ -107,12 +108,25 @@ class SmartAugmentSingle:
             print()
             print('Epoch %d/%d - Avg. loss: %.4f - Time: %.2fs' %
                   (ep + 1, epochs, total_loss / len(dataset), t_elapsed))
-            snap_path_a = os.path.join(save_dir, 'epoch_%d_a.pth' % (ep + 1))
-            snap_path_b = os.path.join(save_dir, 'epoch_%d_b.pth' % (ep + 1))
-            self.save(snap_path_a, snap_path_b)
 
             # Evaluate accuracy
             print('Evaluating...')
+            correct, total = 0., 0.
+            for i, (images, labels) in enumerate(train_loader):
+                _, _, im3 = images
+                im3 = autograd.Variable(im3)
+                if self.__cuda:
+                    im3 = im3.cuda()
+
+                out = self.get_net_b_pred(im3)[0]
+                _, pred = torch.max(out, 0)
+
+                if pred.data[0] == labels[0][0]:
+                    correct += 1.
+                total += 1.
+            acc = correct / total
+            print('Train accuracy: %.4f' % acc)
+
             correct, total = 0., 0.
             for i, (images, labels) in enumerate(test_loader):
                 _, _, im3 = images
@@ -128,12 +142,20 @@ class SmartAugmentSingle:
                 total += 1.
             acc = correct / total
             print('Val accuracy: %.4f' % acc)
+            if acc > best_acc:
+                best_acc = acc
+                self.save(os.path.join(save_dir, 'best_a.pth'), os.path.join(save_dir, 'best_b.pth'))
 
             if ep % snapshot_freq == 0:
+                snap_path_a = os.path.join(save_dir, 'epoch_%d_a.pth' % (ep + 1))
+                snap_path_b = os.path.join(save_dir, 'epoch_%d_b.pth' % (ep + 1))
+                self.save(snap_path_a, snap_path_b)
+
                 print('Testing smart augment...')
                 epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
                 os.makedirs(epoch_img_dir, exist_ok=True)
                 print('Saving results in %s' % epoch_img_dir)
+
                 # Get 5 images from net A
                 all_ = list(test_loader)
                 for i in range(5):
