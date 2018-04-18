@@ -73,6 +73,8 @@ class SingleAugmentDataset(Dataset):
             if random.random() < self.rotate:
                 angle = random.sample(self.rotate_angles, 1)[0]
                 _img = rotate_img(_img, angle)
+            if len(_img.shape) < 3:
+                _img = np.expand_dims(_img, -1)
             new_images.append(_img)
 
         return new_images
