@@ -105,3 +105,8 @@ class SingleAugmentDataset(Dataset):
 
     def __len__(self):
         return len(self._files)
+
+
+class MultiAugmentDataset(SingleAugmentDataset):
+    def __init__(self, files, labels, **kwargs):
+        super().__init__(files, labels, **kwargs)

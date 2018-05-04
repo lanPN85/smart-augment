@@ -5,11 +5,12 @@ import shutil
 
 from smaug import NetworkA1, NetworkB1, SmartAugmentSingle
 from smaug.dataset import SingleAugmentDataset
-from smaug.data_bridge import feret, cifar10
+from smaug.data_bridge import feret, cifar10, imdb
 
 BRIDGES = {
     'feret': feret,
-    'cifar10': cifar10
+    'cifar10': cifar10,
+    'imdb': imdb
 }
 
 
@@ -25,7 +26,7 @@ def parse_arguments():
     parser.add_argument('--train-cutoff', type=int, default=None)
     parser.add_argument('--val-cutoff', type=int, default=None)
     parser.add_argument('--no-augment', action='store_true')
-    parser.add_argument('--data-type', default='feret', help='feret')
+    parser.add_argument('--data-type', default='feret', help='feret | cifar10 | imdb')
     parser.add_argument('--grayscale', action='store_true')
     parser.add_argument('--random-crop', default=0.8, type=float)
     parser.add_argument('--rotate', default=0.5, type=float)
