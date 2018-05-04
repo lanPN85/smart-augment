@@ -10,8 +10,11 @@ def get_data(data_dir, cutoff=None):
     if cutoff is not None:
         pairs = list(pairs)[:cutoff]
     for fn, gender in pairs:
-        full_paths.append(os.path.join(data_dir, fn))
-        labels.append(int(gender))
+        try:
+            labels.append(int(gender))
+            full_paths.append(os.path.join(data_dir, fn))
+        except ValueError:
+            continue
 
     return full_paths, labels
 
