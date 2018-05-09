@@ -2,3 +2,4 @@ torchvision
 numpy
 imutils
 opencv-python
+scipy

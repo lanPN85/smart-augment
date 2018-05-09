@@ -88,7 +88,7 @@ class SmartAugmentSingle:
                 loss_a = criterion_a(new_img, im3)
                 loss_b = criterion_b(out, labels)
                 loss = self.alpha * loss_a + self.beta * loss_b
-                total_loss += loss
+                total_loss += loss.data[0]
 
                 optimizer_a.zero_grad()
                 loss.backward(retain_graph=True)
@@ -98,6 +98,8 @@ class SmartAugmentSingle:
                 optimizer_b.zero_grad()
                 loss_b.backward()
                 optimizer_b.step()
+
+                del im1, im2, im3, labels
 
                 print('Epoch %d/%d - Iter %d/%d - Loss@A: %6.4f - Loss@B: %6.4f - Loss: %6.4f' %
                       (ep+1, epochs, i+1, len(dataset), loss_a, loss_b, loss), end='\r')
