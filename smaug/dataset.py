@@ -110,3 +110,46 @@ class SingleAugmentDataset(Dataset):
 class MultiAugmentDataset(SingleAugmentDataset):
     def __init__(self, files, labels, **kwargs):
         super().__init__(files, labels, **kwargs)
+        self._mapping = {}
+        for fn, lb in zip(files, labels):
+            if lb not in self._mapping.keys():
+                self._mapping[lb] = [fn]
+            else:
+                self._mapping[lb].append(fn)
+
+    def _random_triple(self, index, lbl=None):
+        id3 = index
+        f3 = self._mapping[lbl][id3 % len(self._mapping[lbl])]
+        f2, f1 = random.sample(list(filter(lambda f: f != f3,
+                               self._mapping[lbl])), k=2)
+        return f1, f2, f3
+
+    def __getitem__(self, index):
+        im1s, im2s, im3s = [], [], []
+        labels = []
+
+        for label in self._mapping.keys():
+            f = self._random_triple(index, lbl=label)
+            f1, f2, f3 = f
+            im1 = read_image(f1, grayscale=self.grayscale)
+            im2 = read_image(f2, grayscale=self.grayscale)
+            im3 = read_image(f3, grayscale=self.grayscale)
+
+            if self.augment:
+                im1, im2, im3 = self.augment_images([im1, im2, im3])
+
+            if self.channels_first:
+                im1 = np.transpose(im1, (2, 0, 1))
+                im2 = np.transpose(im2, (2, 0, 1))
+                im3 = np.transpose(im3, (2, 0, 1))
+
+            im1s.append(im1)
+            im2s.append(im2)
+            im3s.append(im3)
+            labels.append(np.asarray(label, dtype=np.int))
+
+        return (im1s, im2s, im3s), labels
+
+    def __len__(self):
+        lengths = map(lambda x: len(x), self._mapping.values())
+        return max(lengths)

@@ -20,6 +20,23 @@ def raw_collate(batch):
     return (ti1, ti2, ti3), tl
 
 
+def raw_multi_collate(batch):
+    # Only accept single batch
+    ims, labels = batch[0]
+    im1s, im2s, im3s = ims
+
+    tis = []
+    tls = []
+    for i1, i2, i3, label in zip(im1s, im2s, im3s, labels):
+        ti1 = torch.unsqueeze(torch.from_numpy(i1).float(), dim=0)
+        ti2 = torch.unsqueeze(torch.from_numpy(i2).float(), dim=0)
+        ti3 = torch.unsqueeze(torch.from_numpy(i3).float(), dim=0)
+        tis.append([ti1, ti2, ti3])
+        tls.append(torch.from_numpy(np.asarray([label])))
+
+    return tis, tls
+
+
 if __name__ == '__main__':
     _im = (np.random.randn(3, 96, 96), np.random.randn(3, 96, 96), np.random.randn(3, 96, 96))
     _label = np.random.randint(0, 5, size=(1,))

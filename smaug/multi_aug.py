@@ -9,7 +9,7 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 
-from smaug.utils import raw_collate
+from smaug.utils import raw_multi_collate, raw_collate
 
 
 class SmartAugmentMulti:
@@ -46,7 +46,7 @@ class SmartAugmentMulti:
     def save(self, pattern_a, path_b):
         for i, na in enumerate(self.net_as):
             torch.save(na, pattern_a % i)
-        torch.save(self.net_b)
+        torch.save(self.net_b, path_b)
 
     @classmethod
     def load(cls, pattern_a, path_b, num_a, **kwargs):
@@ -88,10 +88,15 @@ class SmartAugmentMulti:
         optimizer_b = torch.optim.SGD(self.net_b.parameters(), lr=lr, momentum=0.9, nesterov=False)
         optimizer_as = [torch.optim.SGD(na.parameters(), lr=lr, momentum=0.9, nesterov=False) for na in self.net_as]
 
+        params = []
+        for net in [self.net_b] + self.net_as:
+            params.extend(net.parameters())
+        optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, nesterov=False)
+
         criterion_a = nn.MSELoss(size_average=True)
         criterion_b = nn.CrossEntropyLoss()
         train_loader = DataLoader(dataset, batch_size=1, shuffle=True,
-                                  collate_fn=raw_collate)
+                                  collate_fn=raw_multi_collate)
         test_loader = DataLoader(test_dataset, batch_size=1, collate_fn=raw_collate)
         best_acc = 0.
 
@@ -100,43 +105,54 @@ class SmartAugmentMulti:
             t_start = time.time()
             self.net_b.train()
 
-            for i, (images, labels) in enumerate(train_loader):
-                im1, im2, im3 = images
-                im1 = autograd.Variable(im1)
-                im2 = autograd.Variable(im2)
-                im3 = autograd.Variable(im3)
-                labels = autograd.Variable(labels)
-                labels = torch.cat([labels, labels], dim=0)
-                labels = torch.squeeze(labels, dim=1)
-                lbl = labels.data[0]
+            for i, (imagess, labelss) in enumerate(train_loader):
+                inp_batch = []
+                total_loss_a = autograd.Variable(torch.zeros(1))
+                b_labels = []
 
-                if self.__cuda:
-                    im1 = im1.cuda()
-                    im2 = im2.cuda()
-                    im3 = im3.cuda()
-                    labels = labels.cuda()
+                for images, labels in zip(imagess, labelss):
+                    im1, im2, im3 = images
+                    im1 = autograd.Variable(im1)
+                    im2 = autograd.Variable(im2)
+                    im3 = autograd.Variable(im3)
+                    labels = autograd.Variable(labels)
+                    labels = torch.cat([labels, labels], dim=0)
+                    # print(labels)
+                    # labels = torch.squeeze(labels, dim=1)
 
-                optimizer_a = optimizer_as[lbl]
-                new_img = self.forward_a(im1, im2, lbl)
-                inp_batch = torch.cat([new_img, im3], dim=0)
+                    if self.__cuda:
+                        im1 = im1.cuda()
+                        im2 = im2.cuda()
+                        im3 = im3.cuda()
+                        labels = labels.cuda()
+                    lbl = labels.data[0]
+
+                    new_img = self.forward_a(im1, im2, lbl)
+                    inp_batch.extend([im3, new_img])
+                    b_labels.extend([lbl, lbl])
+
+                    loss_a = criterion_a(new_img, im3)
+                    total_loss_a += loss_a
+
+                inp_batch = torch.cat(inp_batch, dim=0)
+                b_labels = torch.from_numpy(np.asarray(b_labels, dtype=np.int))
+                b_labels = autograd.Variable(b_labels)
+
                 out = self.forward_b(inp_batch)
+                loss_b = criterion_b(out, b_labels)
+                loss = self.alpha * total_loss_a + self.beta * loss_b
+                total_loss += loss.data[0]
 
-                loss_a = criterion_a(new_img, im3)
-                loss_b = criterion_b(out, labels)
-                loss = self.alpha * loss_a + self.beta * loss_b
-                total_loss += loss
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-                optimizer_a.zero_grad()
-                loss.backward(retain_graph=True)
-                nn.utils.clip_grad_norm(self.net_a.parameters(), gradient_norm)
-                optimizer_a.step()
-
-                optimizer_b.zero_grad()
-                loss_b.backward()
-                optimizer_b.step()
+                # optimizer_b.zero_grad()
+                # loss_b.backward()
+                # optimizer_b.step()
 
                 print('Epoch %d/%d - Iter %d/%d - Loss@A: %6.4f - Loss@B: %6.4f - Loss: %6.4f' %
-                      (ep + 1, epochs, i + 1, len(dataset), loss_a, loss_b, loss), end='\r')
+                      (ep + 1, epochs, i + 1, len(dataset), total_loss_a.data[0], loss_b, loss), end='\r')
 
             t_elapsed = time.time() - t_start
             print()
@@ -145,21 +161,6 @@ class SmartAugmentMulti:
 
             # Evaluate accuracy
             print('Evaluating...')
-            correct, total = 0., 0.
-            for i, (images, labels) in enumerate(train_loader):
-                _, _, im3 = images
-                im3 = autograd.Variable(im3)
-                if self.__cuda:
-                    im3 = im3.cuda()
-
-                out = self.get_net_b_pred(im3)[0]
-                _, pred = torch.max(out, 0)
-
-                if pred.data[0] == labels[0][0]:
-                    correct += 1.
-                total += 1.
-            acc = correct / total
-            print('Train accuracy: %.4f' % acc)
 
             correct, total = 0., 0.
             for i, (images, labels) in enumerate(test_loader):
@@ -178,19 +179,18 @@ class SmartAugmentMulti:
             print('Val accuracy: %.4f' % acc)
             if acc > best_acc:
                 best_acc = acc
-                self.save(os.path.join(save_dir, 'best_a.pth'), os.path.join(save_dir, 'best_b.pth'))
-
+                self.save(os.path.join(save_dir, 'best_a_%d.pth'), os.path.join(save_dir, 'best_b.pth'))
 
             if ep % snapshot_freq == 0:
-                snap_path_a = os.path.join(save_dir, 'epoch_%d_a.pth' % (ep + 1))
+                snap_path_a = os.path.join(save_dir, 'epoch_%d_a%%d.pth' % (ep + 1))
                 snap_path_b = os.path.join(save_dir, 'epoch_%d_b.pth' % (ep + 1))
                 self.save(snap_path_a, snap_path_b)
 
-                print('Testing smart augment...')
                 epoch_img_dir = os.path.join(img_dir, '%d' % (ep + 1))
                 os.makedirs(epoch_img_dir, exist_ok=True)
                 print('Saving results in %s' % epoch_img_dir)
 
+                print('Testing smart augment...')
                 # Get 5 images from net A
                 all_ = list(test_loader)
                 for i in range(5):
@@ -202,7 +202,7 @@ class SmartAugmentMulti:
                         im1 = im1.cuda()
                         im2 = im2.cuda()
 
-                    out_img = self.get_net_a_image(im1, im2, lbl)
+                    out_img = self.get_net_a_image(im1, im2, lbl.tolist()[0][0])
                     cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in1.png' % (i+1)), self.denormalize(im1[0]))
                     cv2.imwrite(os.path.join(epoch_img_dir, '%03d_in2.png' % (i+1)), self.denormalize(im2[0]))
                     cv2.imwrite(os.path.join(epoch_img_dir, '%03d_out.png' % (i+1)), out_img)
