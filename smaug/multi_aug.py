@@ -26,6 +26,7 @@ class SmartAugmentMulti:
             self.cpu()
 
     def cuda(self, device=None):
+        self.__cuda = True
         for na in self.net_as:
             na.cuda(device)
         self.net_b.cuda(device)
@@ -108,6 +109,8 @@ class SmartAugmentMulti:
             for i, (imagess, labelss) in enumerate(train_loader):
                 inp_batch = []
                 total_loss_a = autograd.Variable(torch.zeros(1))
+                if self.__cuda:
+                    total_loss_a = total_loss_a.cuda()
                 b_labels = []
 
                 for images, labels in zip(imagess, labelss):
@@ -117,8 +120,6 @@ class SmartAugmentMulti:
                     im3 = autograd.Variable(im3)
                     labels = autograd.Variable(labels)
                     labels = torch.cat([labels, labels], dim=0)
-                    # print(labels)
-                    # labels = torch.squeeze(labels, dim=1)
 
                     if self.__cuda:
                         im1 = im1.cuda()
@@ -137,6 +138,8 @@ class SmartAugmentMulti:
                 inp_batch = torch.cat(inp_batch, dim=0)
                 b_labels = torch.from_numpy(np.asarray(b_labels, dtype=np.int))
                 b_labels = autograd.Variable(b_labels)
+                if self.__cuda:
+                    b_labels = b_labels.cuda()
 
                 out = self.forward_b(inp_batch)
                 loss_b = criterion_b(out, b_labels)
