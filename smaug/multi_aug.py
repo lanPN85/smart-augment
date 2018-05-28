@@ -1,3 +1,5 @@
+from tqdm import tqdm
+
 import os
 import random
 import time
@@ -164,18 +166,18 @@ class SmartAugmentMulti:
 
             # Evaluate accuracy
             print('Evaluating...')
-
             correct, total = 0., 0.
-            for i, (images, labels) in enumerate(test_loader):
+            for i, (images, labels) in enumerate(tqdm(test_loader)):
                 _, _, im3 = images
                 im3 = autograd.Variable(im3)
                 if self.__cuda:
                     im3 = im3.cuda()
+                    labels = labels.cuda()
 
                 out = self.get_net_b_pred(im3)[0]
                 _, pred = torch.max(out, 0)
 
-                if pred.data[0] == labels[0][0]:
+                if pred.data.item() == labels[0][0].item():
                     correct += 1.
                 total += 1.
             acc = correct / total

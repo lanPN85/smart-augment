@@ -3,3 +3,4 @@ numpy
 imutils
 opencv-python
 scipy
+tqdm
