@@ -24,4 +24,4 @@ def get_num_labels():
 
 
 def get_img_size():
-    return 96, 96
+    return 150, 150
